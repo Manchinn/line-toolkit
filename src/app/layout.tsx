@@ -1,11 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Sans_Thai, Poppins, Geist_Mono } from "next/font/google";
+import { Sarabun, Anuphan, Poppins, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const ibmPlexSansThai = IBM_Plex_Sans_Thai({
-  variable: "--font-ibm-plex-sans-thai",
+const sarabun = Sarabun({
+  variable: "--font-sarabun",
   subsets: ["latin", "thai"],
   weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
+
+const anuphan = Anuphan({
+  variable: "--font-anuphan",
+  subsets: ["latin", "thai"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -36,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="th"
-      className={`${ibmPlexSansThai.variable} ${poppins.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${sarabun.variable} ${anuphan.variable} ${poppins.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
