@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Kanit, Poppins, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans_Thai, Poppins, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const kanit = Kanit({
-  variable: "--font-kanit",
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+  variable: "--font-ibm-plex-sans-thai",
   subsets: ["latin", "thai"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="th"
-      className={`${kanit.variable} ${poppins.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${ibmPlexSansThai.variable} ${poppins.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

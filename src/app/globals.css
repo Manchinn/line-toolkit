@@ -16,7 +16,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-kanit), var(--font-poppins), sans-serif;
+  --font-sans: var(--font-ibm-plex-sans-thai), var(--font-poppins), sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -29,7 +29,7 @@ html {
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-kanit), var(--font-poppins), Arial, sans-serif;
+  font-family: var(--font-ibm-plex-sans-thai), var(--font-poppins), Arial, sans-serif;
   min-height: 100vh;
 }
 
