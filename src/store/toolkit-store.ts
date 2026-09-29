@@ -1,7 +1,9 @@
 'use client';
 
 import { create } from 'zustand';
-import type { ClientProfile, RichMenuTab, RichMenuArea } from '@/types/line';
+import type { ClientProfile, MenuSize, RichMenuTab, RichMenuArea } from '@/types/line';
+import { clampBounds, scaleBounds } from '@/lib/richmenu/geometry';
+import { autoLinkTabs } from '@/lib/richmenu/autolink';
 
 export interface DeployStatus {
   message: string;
@@ -40,7 +42,12 @@ interface ToolkitState {
   updateTab: (id: string, partial: Partial<RichMenuTab>) => void;
   setActiveTab: (id: string) => void;
   setDefaultTab: (id: string) => void;
+  /** Change base size and rescale existing areas proportionally. */
+  setTabSize: (id: string, size: MenuSize) => void;
+  /** Always stores integer, clamped bounds. */
   updateActiveTabAreas: (areas: RichMenuArea[]) => void;
+  /** Wire richmenuswitch bars across all tabs. Returns warnings; throws if not linkable. */
+  autoLinkAllTabs: () => string[];
 
   // Area actions
   selectArea: (id: string | null) => void;
@@ -185,6 +192,22 @@ export const useToolkitStore = create<ToolkitState>((set, get) => ({
     });
   },
 
+  setTabSize: (id, size) => {
+    set({
+      tabs: get().tabs.map((t) =>
+        t.id === id
+          ? { ...t, size, areas: t.areas.map((a) => ({ ...a, bounds: scaleBounds(a.bounds, t.size, size) })) }
+          : t
+      ),
+    });
+  },
+
+  autoLinkAllTabs: () => {
+    const { tabs, warnings } = autoLinkTabs(get().tabs);
+    set({ tabs, selectedAreaId: null });
+    return warnings;
+  },
+
   setActiveTab: (id) => {
     set({ activeTabId: id, selectedAreaId: null });
   },
@@ -193,7 +216,9 @@ export const useToolkitStore = create<ToolkitState>((set, get) => ({
     const { activeTabId } = get();
     set({
       tabs: get().tabs.map((t) =>
-        t.id === activeTabId ? { ...t, areas } : t
+        t.id === activeTabId
+          ? { ...t, areas: areas.map((a) => ({ ...a, bounds: clampBounds(a.bounds, t.size) })) }
+          : t
       ),
     });
   },
@@ -208,7 +233,12 @@ export const useToolkitStore = create<ToolkitState>((set, get) => ({
     set({
       tabs: get().tabs.map((t) =>
         t.id === activeTabId
-          ? { ...t, areas: t.areas.map((a) => (a.id === updated.id ? updated : a)) }
+          ? {
+              ...t,
+              areas: t.areas.map((a) =>
+                a.id === updated.id ? { ...updated, bounds: clampBounds(updated.bounds, t.size) } : a
+              ),
+            }
           : t
       ),
     });

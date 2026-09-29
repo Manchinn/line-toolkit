@@ -1,10 +1,20 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useToolkitStore } from '@/store/toolkit-store';
 import RichMenuCanvas from '@/components/RichMenuCanvas';
 import ActionEditor from '@/components/ActionEditor';
 import ClientManager from '@/components/ClientManager';
+import GridPresetBar from '@/components/GridPresetBar';
+import TabAutoLinker from '@/components/TabAutoLinker';
+import DeviceSimulator from '@/components/DeviceSimulator';
+import CardStudio from '@/components/card-studio/CardStudio';
+import SectionErrorBoundary from '@/components/ErrorBoundary';
+import ActionIcon from '@/components/ActionIcon';
+import { createAreaId } from '@/components/RichMenuCanvas';
+import { ACTION_META, LINE_LIMITS, isActionType, summarizeAction } from '@/lib/richmenu/actions';
+import { buildRichMenuPayload, validateTab } from '@/lib/richmenu/payload';
+import { clampBounds, isBoundsInside } from '@/lib/richmenu/geometry';
 import { cn } from '@/lib/utils';
 import {
   Rocket,
@@ -17,20 +27,30 @@ import {
   Trash2,
   Download,
   Upload,
-  Link,
-  MessageSquare,
-  ArrowLeftRight,
-  Send,
   Edit2,
   Sliders,
   CheckCheck,
   Code2,
 } from 'lucide-react';
-import { RichMenuArea } from '@/types/line';
+import type { AreaAction, AreaBounds, MenuSize, RichMenuArea } from '@/types/line';
 
-// Helper outside component to maintain purity
-function generateAreaId(seed: number | string = 0) {
-  return `area_${seed}_${Math.random().toString(36).slice(2, 7)}`;
+type NavKey = 'builder' | 'preview' | 'tabs' | 'client' | 'json' | 'deploy' | 'cards';
+
+/** Parse an imported LINE rich menu area into an editor area (unknown actions → unset). */
+function importArea(raw: unknown, idx: number, size: MenuSize): RichMenuArea {
+  const a = (raw && typeof raw === 'object' ? raw : {}) as { bounds?: Partial<AreaBounds>; action?: Partial<AreaAction> };
+  const b = a.bounds ?? {};
+  const type = a.action?.type;
+  const action: AreaAction = isActionType(type) ? { ...a.action, type } : { type: 'none' };
+  return {
+    id: createAreaId(idx),
+    label: `ปุ่ม #${idx + 1}`,
+    bounds: clampBounds(
+      { x: Number(b.x ?? 0), y: Number(b.y ?? 0), width: Number(b.width ?? size.width), height: Number(b.height ?? size.height) },
+      size
+    ),
+    action,
+  };
 }
 
 export default function Home() {
@@ -52,6 +72,8 @@ export default function Home() {
     addTab,
     deleteTab,
     updateTab,
+    setTabSize,
+    autoLinkAllTabs,
     setDefaultTab,
     setActiveTab,
     selectArea,
@@ -64,7 +86,7 @@ export default function Home() {
     clearTabImage,
   } = useToolkitStore();
 
-  const [activeNavSection, setActiveNavSection] = useState<'builder' | 'tabs' | 'client' | 'json' | 'deploy'>('builder');
+  const [activeNavSection, setActiveNavSection] = useState<NavKey>('builder');
   const [batchDeploying, setBatchDeploying] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
   const [jsonMinified, setJsonMinified] = useState(false);
@@ -74,6 +96,13 @@ export default function Home() {
   const activeTab = getActiveTab();
   const activeArea = getActiveArea();
   const currentClient = getCurrentClient();
+  const knownAliases = useMemo(() => tabs.map((t) => t.aliasId), [tabs]);
+  const tabIssues = useMemo(() => validateTab(activeTab, knownAliases), [activeTab, knownAliases]);
+  const invalidAreaIds = useMemo(
+    () => new Set(tabIssues.flatMap((i) => (i.areaId ? [i.areaId] : []))),
+    [tabIssues]
+  );
+  const linePayload = useMemo(() => buildRichMenuPayload(activeTab), [activeTab]);
 
   useEffect(() => {
     loadClients();
@@ -86,23 +115,19 @@ export default function Home() {
   };
 
   const handleSizePreset = (width: number, height: number) => {
-    updateTab(activeTab.id, { size: { width, height } });
+    setTabSize(activeTab.id, { width, height });
   };
 
   const handleAddQuickArea = () => {
+    if (activeTab.areas.length >= LINE_LIMITS.maxAreas) {
+      setDeployStatus({ message: `แท็บนี้มีปุ่มครบ ${LINE_LIMITS.maxAreas} ปุ่มแล้ว (สูงสุดของ LINE)`, isError: true });
+      return;
+    }
     const newArea: RichMenuArea = {
-      id: generateAreaId(activeTab.areas.length + 1),
+      id: createAreaId(activeTab.areas.length + 1),
       label: `ปุ่ม #${activeTab.areas.length + 1}`,
-      bounds: {
-        x: 0,
-        y: 0,
-        width: Math.round(activeTab.size.width / 2),
-        height: activeTab.size.height,
-      },
-      action: {
-        type: 'uri',
-        uri: 'https://line.me',
-      },
+      bounds: { x: 0, y: 0, width: Math.round(activeTab.size.width / 2), height: activeTab.size.height },
+      action: { type: 'none' },
     };
     updateActiveTabAreas([...activeTab.areas, newArea]);
     selectArea(newArea.id);
@@ -117,7 +142,7 @@ export default function Home() {
   };
 
   const handleExportJson = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(generateLinePayload(), null, 2));
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(linePayload, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
     downloadAnchor.setAttribute('download', `richmenu_${activeTab.aliasId || 'schema'}.json`);
@@ -133,22 +158,22 @@ export default function Home() {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
+        const size: MenuSize =
+          json.size && Number.isInteger(json.size.width) && Number.isInteger(json.size.height) ? json.size : activeTab.size;
         if (json.size) {
           updateTab(activeTab.id, {
-            size: json.size,
+            size,
             chatBarText: json.chatBarText || activeTab.chatBarText,
             title: json.name || activeTab.title,
             selected: json.selected ?? activeTab.selected,
           });
         }
         if (Array.isArray(json.areas)) {
-          const importedAreas: RichMenuArea[] = json.areas.map((a: { bounds?: RichMenuArea['bounds']; action?: RichMenuArea['action'] }, idx: number) => ({
-            id: generateAreaId(idx),
-            label: `ปุ่ม #${idx + 1}`,
-            bounds: a.bounds || { x: 0, y: 0, width: 2500, height: 1686 },
-            action: a.action || { type: 'uri', uri: 'https://line.me' },
-          }));
+          const importedAreas = (json.areas as unknown[])
+            .slice(0, LINE_LIMITS.maxAreas)
+            .map((a, idx) => importArea(a, idx, size));
           updateActiveTabAreas(importedAreas);
+          selectArea(null);
         }
         setDeployStatus({ message: 'นำเข้า JSON สำเร็จเรียบร้อย' });
       } catch {
@@ -159,22 +184,10 @@ export default function Home() {
     e.target.value = '';
   };
 
-  // Generate standard LINE API payload
-  const generateLinePayload = () => ({
-    size: activeTab.size,
-    selected: activeTab.selected,
-    name: activeTab.title,
-    chatBarText: activeTab.chatBarText,
-    areas: activeTab.areas.map((a) => ({
-      bounds: a.bounds,
-      action: a.action,
-    })),
-  });
 
   const copyJsonPayload = async () => {
     try {
-      const payload = generateLinePayload();
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, jsonMinified ? 0 : 2));
+      await navigator.clipboard.writeText(JSON.stringify(linePayload, null, jsonMinified ? 0 : 2));
       setCopiedJson(true);
       setTimeout(() => setCopiedJson(false), 2000);
     } catch {
@@ -192,6 +205,12 @@ export default function Home() {
     if (!activeTab.imagePreviewUrl) {
       setDeployStatus({ message: `กรุณาอัปโหลดภาพของ “${activeTab.title}” ก่อนกดยิง API`, isError: true });
       document.getElementById('sec-settings')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    if (tabIssues.length > 0) {
+      setDeployStatus({ message: `แก้ไขก่อน Deploy: ${tabIssues.map((i) => i.message).join(' · ')}`, isError: true });
+      document.getElementById('sec-json')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
 
@@ -244,6 +263,19 @@ export default function Home() {
       return;
     }
 
+    const invalidTabs = tabs
+      .map((t) => ({ tab: t, issues: validateTab(t, knownAliases) }))
+      .filter((r) => r.issues.length > 0);
+    if (invalidTabs.length > 0) {
+      setDeployStatus({
+        message: `มี ${invalidTabs.length} แท็บที่ยังไม่พร้อม: ${invalidTabs
+          .map((r) => `${r.tab.title} (${r.issues[0].message}${r.issues.length > 1 ? ` +${r.issues.length - 1}` : ''})`)
+          .join(', ')}`,
+        isError: true,
+      });
+      return;
+    }
+
     if (!confirm(`ยืนยันการ Deploy ทั้งชุด (${tabs.length} แท็บ) ขึ้น LINE OA ของ “${currentClient.name}”?`)) {
       return;
     }
@@ -286,20 +318,7 @@ export default function Home() {
     }
   };
 
-  const getActionIcon = (type: string) => {
-    switch (type) {
-      case 'uri':
-        return <Link className="w-3 h-3 text-[#147a42]" />;
-      case 'message':
-        return <MessageSquare className="w-3 h-3 text-sky-600" />;
-      case 'richmenuswitch':
-        return <ArrowLeftRight className="w-3 h-3 text-purple-600" />;
-      default:
-        return <Send className="w-3 h-3 text-amber-600" />;
-    }
-  };
-
-  const scrollToSection = (id: string, navKey: 'builder' | 'tabs' | 'client' | 'json' | 'deploy') => {
+  const scrollToSection = (id: string, navKey: NavKey) => {
     setActiveNavSection(navKey);
     const el = document.getElementById(id);
     if (!el) return;
@@ -307,13 +326,8 @@ export default function Home() {
     el.scrollIntoView({ behavior: isReduced ? 'auto' : 'smooth' });
   };
 
-  const isAreaInBounds = activeTab.areas.every(
-    (a) =>
-      a.bounds.x >= 0 &&
-      a.bounds.y >= 0 &&
-      a.bounds.x + a.bounds.width <= activeTab.size.width &&
-      a.bounds.y + a.bounds.height <= activeTab.size.height
-  );
+  const isAreaInBounds = activeTab.areas.every((a) => isBoundsInside(a.bounds, activeTab.size));
+  const actionIssues = tabIssues.filter((i) => i.areaId);
 
   return (
     <main className="toolkit-wrap">
@@ -396,6 +410,24 @@ export default function Home() {
         >
           <span className="nav-num">05</span>
           <span>Deploy & Push</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => scrollToSection('sec-preview', 'preview')}
+          className={cn('nav-tab-btn', activeNavSection === 'preview' && 'active')}
+        >
+          <span className="nav-num">06</span>
+          <span>Device Simulator</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => scrollToSection('sec-cards', 'cards')}
+          className={cn('nav-tab-btn', activeNavSection === 'cards' && 'active')}
+        >
+          <span className="nav-num">07</span>
+          <span>Card Studio</span>
         </button>
       </nav>
 
@@ -586,22 +618,65 @@ export default function Home() {
 
           <div className="section-content space-y-5">
             {/* Visual Canvas */}
+            <SectionErrorBoundary title="Rich Menu Canvas">
             <RichMenuCanvas
               imageSrc={activeTab.imagePreviewUrl}
               size={activeTab.size}
               areas={activeTab.areas}
               selectedAreaId={selectedAreaId}
               onSelectArea={selectArea}
+              invalidAreaIds={invalidAreaIds}
               onUpdateAreas={updateActiveTabAreas}
               onUploadImage={onImageUpload}
               onClearImage={() => clearTabImage(activeTab.id)}
+              toolbar={
+                <GridPresetBar
+                  size={activeTab.size}
+                  tabs={tabs}
+                  existingAreaCount={activeTab.areas.length}
+                  onApply={(areas) => {
+                    updateActiveTabAreas(areas);
+                    selectArea(areas[0]?.id ?? null);
+                  }}
+                />
+              }
             />
+            </SectionErrorBoundary>
+
+            {/* Action Settings Inspector (opens when an area is clicked) */}
+            <div
+              id="area-inspector"
+              className={cn(
+                'rounded-lg border p-4 transition-colors',
+                activeArea ? 'bg-[#f6faf7] border-[#b8dec4]' : 'bg-white border-[#dfe5e1]'
+              )}
+            >
+              {activeArea && (
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#b8dec4]">
+                  <span className="text-xs font-bold text-[#147a42] uppercase tracking-wider flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5" aria-hidden="true" />
+                    Action Settings: {activeArea.label}
+                  </span>
+                  <button type="button" onClick={() => selectArea(null)} className="text-xs text-[#5e6f64] hover:text-[#1c2620]">
+                    ปิดแถบปรับแต่ง
+                  </button>
+                </div>
+              )}
+              <ActionEditor
+                area={activeArea}
+                tabs={tabs}
+                currentTabId={activeTab.id}
+                tabSize={activeTab.size}
+                onUpdateArea={updateArea}
+                onDeleteArea={deleteArea}
+              />
+            </div>
 
             {/* Areas Table (AREAS 3/20) */}
             <div className="pt-2">
               <div className="flex items-center justify-between pb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#1c2620]">
-                  AREAS ({activeTab.areas.length}/20)
+                  AREAS ({activeTab.areas.length}/{LINE_LIMITS.maxAreas})
                 </span>
                 <span className="text-xs text-[#5e6f64] font-mono">
                   พิกัดตามอัตราส่วนจริง LINE Native (Max {activeTab.size.width}×{activeTab.size.height})
@@ -627,25 +702,24 @@ export default function Home() {
                     <tbody>
                       {activeTab.areas.map((area, idx) => {
                         const isSelected = area.id === selectedAreaId;
+                        const meta = ACTION_META[area.action.type] ?? ACTION_META.none;
                         return (
                           <tr
                             key={area.id}
-                            className={cn('transition-colors', isSelected && 'selected')}
+                            onClick={() => selectArea(area.id)}
+                            className={cn('transition-colors cursor-pointer', isSelected && 'selected')}
                           >
                             <td className="font-mono font-bold text-[#147a42]">
                               {idx + 1}
                             </td>
                             <td>
-                              <span className="inline-flex items-center gap-1 font-semibold text-xs">
-                                {getActionIcon(area.action.type)}
-                                {area.action.type.toUpperCase()}
+                              <span className={cn('inline-flex items-center gap-1 font-semibold text-[10px] px-1.5 py-0.5 rounded font-mono', meta.badgeClass)}>
+                                <ActionIcon type={area.action.type} />
+                                {meta.shortLabel}
                               </span>
                             </td>
-                            <td className="font-mono text-xs text-[#34483b] truncate max-w-[280px]">
-                              {area.action.type === 'uri' && (area.action.uri || 'ไม่มี URL')}
-                              {area.action.type === 'message' && `“${area.action.text || ''}”`}
-                              {area.action.type === 'richmenuswitch' && `Switch -> ${area.action.richMenuAliasId || 'N/A'}`}
-                              {area.action.type === 'postback' && `Data: ${area.action.data || 'N/A'}`}
+                            <td className={cn('font-mono text-xs truncate max-w-[280px]', invalidAreaIds.has(area.id) ? 'text-red-600' : 'text-[#34483b]')}>
+                              {summarizeAction(area.action)}
                             </td>
                             <td className="font-mono text-xs text-[#5e6f64]">
                               [{area.bounds.x}, {area.bounds.y}, {area.bounds.width}, {area.bounds.height}]
@@ -654,7 +728,11 @@ export default function Home() {
                               <div className="inline-flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => selectArea(isSelected ? null : area.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    selectArea(isSelected ? null : area.id);
+                                    if (!isSelected) document.getElementById('area-inspector')?.scrollIntoView({ block: 'nearest' });
+                                  }}
                                   className="text-xs text-[#147a42] hover:underline font-semibold flex items-center gap-1"
                                 >
                                   <Edit2 className="w-3 h-3" aria-hidden="true" />
@@ -662,7 +740,10 @@ export default function Home() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => deleteArea(area.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteArea(area.id);
+                                  }}
                                   className="text-xs text-[#c93b2b] hover:underline"
                                 >
                                   ลบ
@@ -678,32 +759,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* Selected Area Inspector */}
-            {activeArea && (
-              <div className="p-4 bg-[#f6faf7] border border-[#b8dec4] rounded-lg mt-4 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#b8dec4]">
-                  <span className="text-xs font-bold text-[#147a42] uppercase tracking-wider flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5" aria-hidden="true" />
-                    กำลังปรับแต่ง: {activeArea.label}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => selectArea(null)}
-                    className="text-xs text-[#5e6f64] hover:text-[#1c2620]"
-                  >
-                    ปิดแถบปรับแต่ง
-                  </button>
-                </div>
-                <ActionEditor
-                  area={activeArea}
-                  totalAreas={activeTab.areas.length}
-                  availableAliases={tabs.map((t) => t.aliasId)}
-                  tabSize={activeTab.size}
-                  onUpdateArea={updateArea}
-                  onDeleteArea={deleteArea}
-                />
-              </div>
-            )}
           </div>
         </section>
 
@@ -754,14 +809,26 @@ export default function Home() {
 
             {/* Code Block */}
             <pre className="bg-[#18231c] text-[#d2edd9] p-4 rounded-lg font-mono text-xs overflow-x-auto max-h-72 leading-relaxed select-all">
-              {JSON.stringify(generateLinePayload(), null, jsonMinified ? 0 : 2)}
+              {JSON.stringify(linePayload, null, jsonMinified ? 0 : 2)}
             </pre>
 
             {/* Validation Checklist */}
             <div className="validation-checklist" aria-label="ผลการตรวจสอบ Schema">
               <span className="validation-item">
-                <CheckCheck className="w-4 h-4 text-[#147a42]" aria-hidden="true" />
-                OK Valid LINE Schema
+                {tabIssues.length === 0 ? (
+                  <CheckCheck className="w-4 h-4 text-[#147a42]" aria-hidden="true" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-red-600" aria-hidden="true" />
+                )}
+                {tabIssues.length === 0 ? 'OK Valid LINE Schema' : `${tabIssues.length} Issue(s)`}
+              </span>
+              <span className="validation-item">
+                {actionIssues.length === 0 ? (
+                  <CheckCheck className="w-4 h-4 text-[#147a42]" aria-hidden="true" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-amber-600" aria-hidden="true" />
+                )}
+                {actionIssues.length === 0 ? 'OK Actions Configured' : 'Actions Incomplete'}
               </span>
               <span className="validation-item">
                 <CheckCheck className="w-4 h-4 text-[#147a42]" aria-hidden="true" />
@@ -784,6 +851,40 @@ export default function Home() {
                 {isAreaInBounds ? 'OK Bounds in Canvas' : 'Area Out of Bounds'}
               </span>
             </div>
+
+            {tabIssues.length > 0 && (
+              <ul className="mt-3 space-y-0.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800" aria-label="สิ่งที่ต้องแก้ก่อน Deploy">
+                {tabIssues.map((issue, i) => (
+                  <li key={`${issue.areaId ?? 'tab'}-${i}`} className="flex items-start gap-1">
+                    <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                    {issue.areaId ? (
+                      <button type="button" onClick={() => selectArea(issue.areaId ?? null)} className="text-left hover:underline">
+                        {issue.message}
+                      </button>
+                    ) : (
+                      issue.message
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2 text-[11px] text-[#5e6f64]">
+              * พื้นที่ที่ยังไม่กำหนด Action จะไม่ถูกใส่ใน JSON และระบบจะไม่ให้ Deploy จนกว่าจะแก้ครบ
+            </p>
+          </div>
+        </section>
+
+        {/* 06 Device Simulator */}
+        <section id="sec-preview" className="section-two-col" aria-labelledby="preview-heading">
+          <div className="section-sidebar">
+            <span className="section-num-badge">06</span>
+            <h2 id="preview-heading">Live Device Simulator</h2>
+            <p>ทดลองกดปุ่มบน Rich Menu เหมือนบนมือถือจริง — สลับแท็บ, ส่งข้อความ, เปิดลิงก์ และพับ/เปิดเมนูผ่าน Chat Bar</p>
+          </div>
+          <div className="section-content flex justify-center bg-[#f4f6f5]">
+            <SectionErrorBoundary title="Device Simulator">
+              <DeviceSimulator tabs={tabs} />
+            </SectionErrorBoundary>
           </div>
         </section>
 
@@ -961,6 +1062,10 @@ export default function Home() {
                 );
               })}
             </div>
+
+            <SectionErrorBoundary title="Auto Linker">
+              <TabAutoLinker tabs={tabs} onAutoLink={autoLinkAllTabs} />
+            </SectionErrorBoundary>
           </div>
         </section>
 
@@ -980,6 +1085,20 @@ export default function Home() {
               onAddClient={addClient}
               onDeleteClient={deleteClient}
             />
+          </div>
+        </section>
+
+        {/* 07 Card Studio (Flex Message) */}
+        <section id="sec-cards" className="section-two-col" aria-labelledby="cards-heading">
+          <div className="section-sidebar">
+            <span className="section-num-badge">07</span>
+            <h2 id="cards-heading">Card Studio</h2>
+            <p>สร้าง Card / Carousel แบบ LINE OA Manager (บุคคล / สินค้า) แล้ว Copy เป็น Flex Message JSON ไปใช้กับ Messaging API ได้ทันที</p>
+          </div>
+          <div className="section-content">
+            <SectionErrorBoundary title="Card Studio">
+              <CardStudio />
+            </SectionErrorBoundary>
           </div>
         </section>
       </div>
