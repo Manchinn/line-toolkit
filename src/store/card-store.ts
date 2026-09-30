@@ -145,6 +145,7 @@ export const useCardStore = create<CardState>()(
         altText: state.altText,
       }),
       merge: mergePersisted,
+      migrate: (persistedState) => persistedState as PersistedCardState,
     }
   )
 );
