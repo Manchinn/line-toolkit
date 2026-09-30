@@ -33,6 +33,10 @@ import {
   CheckCheck,
   Code2,
   LayoutGrid,
+  Smartphone,
+  Layers,
+  Building2,
+  Sparkles,
 } from 'lucide-react';
 import type { AreaAction, AreaBounds, MenuSize, RichMenuArea } from '@/types/line';
 
@@ -333,19 +337,26 @@ export default function Home() {
   const actionIssues = tabIssues.filter((i) => i.areaId);
 
   return (
-    <main className="toolkit-wrap">
+    <div className="min-h-screen bg-[#f7f9f7] text-[#1c2620] flex flex-col lg:flex-row">
       <a href="#main-content" className="skip-link">
         ข้ามไปยังเนื้อหาหลัก
       </a>
 
-      {/* Top Header */}
-      <header className="toolkit-header">
-        <div className="toolkit-title">
-          <span className="th-subtitle">ระบบสร้างและจัดการ LINE Official Account Rich Menu</span>
-          <h1>LINE Messaging Toolkit</h1>
-        </div>
+      {/* Left Sidebar (Desktop Fixed / Sticky) */}
+      <aside className="w-full lg:w-64 xl:w-72 shrink-0 bg-white border-b lg:border-b-0 lg:border-r border-[#dce2de] lg:h-screen lg:sticky lg:top-0 flex flex-col justify-between overflow-y-auto z-30">
+        <div className="p-4 sm:p-5">
+          {/* App Branding */}
+          <div className="flex items-center gap-2.5 mb-5 pb-4 border-b border-[#edf2ee]">
+            <div className="w-8 h-8 rounded-xl bg-[#147a42] flex items-center justify-center text-white shadow-xs shrink-0">
+              <span className="font-bold text-xs font-mono tracking-wider">LN</span>
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-bold text-sm text-[#1c2620] leading-tight truncate">LINE Messaging Toolkit</h1>
+              <span className="text-[11px] text-[#5e6f64] block truncate">Rich Menu & Card Studio</span>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+          {/* Quick Action: Manage Menus on LINE */}
           <button
             type="button"
             onClick={() => {
@@ -356,16 +367,166 @@ export default function Home() {
               }
               setIsRemoteManagerOpen(true);
             }}
-            className="px-3.5 py-2 rounded-xl bg-white border border-[#b8dec4] text-[#147a42] hover:bg-[#edf7ef] shadow-2xs text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            className="w-full mb-5 px-3 py-2 rounded-xl bg-[#edf7ef] hover:bg-[#dff0e3] border border-[#b8dec4] text-[#147a42] text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer shadow-2xs"
             title="ตรวจสอบและลบเมนูบน LINE OA โดยตรง"
           >
-            <LayoutGrid className="w-4 h-4 text-[#147a42]" />
-            <span>จัดการเมนูบน LINE</span>
-            {currentClient ? (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" title="พร้อมเชื่อมต่อ" />
-            ) : null}
+            <span className="flex items-center gap-2">
+              <LayoutGrid className="w-4 h-4 text-[#147a42]" />
+              <span>จัดการเมนูบน LINE</span>
+            </span>
+            {currentClient && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="พร้อมเชื่อมต่อ" />
+            )}
           </button>
 
+          {/* Navigation Section */}
+          <nav className="space-y-1" aria-label="แถบเมนูหลัก">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7d8f83] px-2 mb-2 block font-mono">
+              Workbench Sections
+            </span>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-settings', 'builder')}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left',
+                activeNavSection === 'builder'
+                  ? 'bg-[#147a42] text-white shadow-xs font-semibold'
+                  : 'text-[#425247] hover:bg-[#f0f4f1]'
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <Sliders className="w-3.5 h-3.5" />
+                <span>01.1 Settings</span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-areas', 'builder')}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left',
+                activeNavSection === 'builder'
+                  ? 'bg-[#147a42]/10 text-[#147a42] font-semibold'
+                  : 'text-[#425247] hover:bg-[#f0f4f1]'
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>01.2 Tap Areas</span>
+              </span>
+              <span className="text-[10px] font-mono opacity-80">{activeTab.areas.length}/20</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-json', 'json')}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left',
+                activeNavSection === 'json'
+                  ? 'bg-[#147a42] text-white shadow-xs font-semibold'
+                  : 'text-[#425247] hover:bg-[#f0f4f1]'
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <Code2 className="w-3.5 h-3.5" />
+                <span>01.3 Rich Menu JSON</span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-deploy', 'deploy')}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left',
+                activeNavSection === 'deploy'
+                  ? 'bg-[#147a42] text-white shadow-xs font-semibold'
+                  : 'text-[#425247] hover:bg-[#f0f4f1]'
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <Rocket className="w-3.5 h-3.5" />
+                <span>01.4 Deploy to LINE</span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-tabs', 'tabs')}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left',
+                activeNavSection === 'tabs'
+                  ? 'bg-[#147a42] text-white shadow-xs font-semibold'
+                  : 'text-[#425247] hover:bg-[#f0f4f1]'
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <Layers className="w-3.5 h-3.5" />
+                <span>02 Manage Tabs</span>
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-black/5 rounded">
+                {tabs.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-client', 'client')}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left',
+                activeNavSection === 'client'
+                  ? 'bg-[#147a42] text-white shadow-xs font-semibold'
+                  : 'text-[#425247] hover:bg-[#f0f4f1]'
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>03 Account Profile</span>
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-black/5 rounded">
+                {clients.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-cards', 'cards')}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left',
+                activeNavSection === 'cards'
+                  ? 'bg-[#147a42] text-white shadow-xs font-semibold'
+                  : 'text-[#425247] hover:bg-[#f0f4f1]'
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>07 Card Studio</span>
+              </span>
+              <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 rounded">
+                Flex
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('sec-preview', 'preview')}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left xl:hidden',
+                activeNavSection === 'preview'
+                  ? 'bg-[#147a42] text-white shadow-xs font-semibold'
+                  : 'text-[#425247] hover:bg-[#f0f4f1]'
+              )}
+            >
+              <span className="flex items-center gap-2.5">
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>06 Live Simulator</span>
+              </span>
+            </button>
+          </nav>
+        </div>
+
+        {/* Sidebar Footer: System Status */}
+        <div className="p-4 border-t border-[#dce2de] bg-[#fcfdfc] space-y-3">
           <div className="toolkit-status-box" aria-label="สถานะการเชื่อมต่อระบบ">
             <div className="flex items-center justify-between text-[#5e6f64]">
               <span>Connection:</span>
@@ -387,96 +548,18 @@ export default function Home() {
               </span>
             </div>
           </div>
+
+          <div className="flex items-center justify-between text-[11px] text-[#7d8f83] px-1 font-mono">
+            <span>LINE API v2</span>
+            <span>Next.js 16</span>
+          </div>
         </div>
-      </header>
+      </aside>
 
-      {/* Navigation Segmented Strip */}
-      <nav className="nav-segmented-strip" aria-label="แถบเมนูหลักของเครื่องมือ">
-        <button
-          type="button"
-          onClick={() => scrollToSection('sec-settings', 'builder')}
-          className={cn('nav-tab-btn', activeNavSection === 'builder' && 'active')}
-        >
-          <span className="nav-num">01</span>
-          <span>Builder (Rich Menu)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('sec-tabs', 'tabs')}
-          className={cn('nav-tab-btn', activeNavSection === 'tabs' && 'active')}
-        >
-          <span className="nav-num">02</span>
-          <span>Manage Tabs ({tabs.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('sec-client', 'client')}
-          className={cn('nav-tab-btn', activeNavSection === 'client' && 'active')}
-        >
-          <span className="nav-num">03</span>
-          <span>Account ({clients.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (!currentClient) {
-              scrollToSection('sec-client', 'client');
-              setDeployStatus({ message: 'กรุณาเลือกลูกค้า / ใส่ Channel Access Token ในส่วน Account ก่อน', isError: true });
-            } else {
-              setIsRemoteManagerOpen(true);
-            }
-          }}
-          className="nav-tab-btn text-[#147a42] hover:bg-[#edf7ef]"
-          title="เปิดหน้าต่างตรวจสอบและลบเมนูบน LINE OA"
-        >
-          <span className="nav-num">LINE</span>
-          <span className="flex items-center gap-1">
-            <span>Remote Menus</span>
-            {currentClient && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('sec-json', 'json')}
-          className={cn('nav-tab-btn', activeNavSection === 'json' && 'active')}
-        >
-          <span className="nav-num">04</span>
-          <span>JSON Schema</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('sec-deploy', 'deploy')}
-          className={cn('nav-tab-btn', activeNavSection === 'deploy' && 'active')}
-        >
-          <span className="nav-num">05</span>
-          <span>Deploy & Push</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('sec-preview', 'preview')}
-          className={cn('nav-tab-btn', activeNavSection === 'preview' && 'active')}
-        >
-          <span className="nav-num">06</span>
-          <span>Device Simulator</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('sec-cards', 'cards')}
-          className={cn('nav-tab-btn', activeNavSection === 'cards' && 'active')}
-        >
-          <span className="nav-num">07</span>
-          <span>Card Studio</span>
-        </button>
-      </nav>
-
-      <div id="main-content">
+      {/* Main Content + Right Sticky Simulator Wrapper */}
+      <div className="flex-1 min-w-0 flex flex-col xl:flex-row gap-8 p-4 sm:p-6 lg:p-8 justify-center">
+        {/* Center Main Content Area */}
+        <main className="flex-1 min-w-0 max-w-4xl space-y-6" id="main-content">
         {/* Hidden inputs for JSON import */}
         <input
           type="file"
@@ -919,20 +1002,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 06 Device Simulator */}
-        <section id="sec-preview" className="section-two-col" aria-labelledby="preview-heading">
-          <div className="section-sidebar">
-            <span className="section-num-badge">06</span>
-            <h2 id="preview-heading">Live Device Simulator</h2>
-            <p>ทดลองกดปุ่มบน Rich Menu เหมือนบนมือถือจริง — สลับแท็บ, ส่งข้อความ, เปิดลิงก์ และพับ/เปิดเมนูผ่าน Chat Bar</p>
-          </div>
-          <div className="section-content flex justify-center bg-[#f4f6f5]">
-            <SectionErrorBoundary title="Device Simulator">
-              <DeviceSimulator tabs={tabs} />
-            </SectionErrorBoundary>
-          </div>
-        </section>
-
         {/* 01.4 Deploy & Push Section */}
         <section id="sec-deploy" className="section-two-col" aria-labelledby="deploy-heading">
           <div className="section-sidebar">
@@ -1159,29 +1228,61 @@ export default function Home() {
             </SectionErrorBoundary>
           </div>
         </section>
-      </div>
 
-      {/* Clean Editorial Footer */}
-      <footer className="mt-16 pt-8 border-t border-[#dfe5e1] flex flex-col sm:flex-row items-center justify-between text-xs text-[#5e6f64] gap-4">
-        <div>
-          <strong>LINE Messaging Toolkit Studio</strong> — ออกแบบและส่งเมนูขึ้น LINE Messaging API
-        </div>
-        <div className="flex items-center gap-4 text-[11px] font-mono">
-          <span>LINE OA Official API v2</span>
-          <span>•</span>
-          <span>Next.js 16 + React 19</span>
-        </div>
-      </footer>
+        {/* Clean Editorial Footer */}
+        <footer className="mt-16 pt-8 border-t border-[#dfe5e1] flex flex-col sm:flex-row items-center justify-between text-xs text-[#5e6f64] gap-4">
+          <div>
+            <strong>LINE Messaging Toolkit Studio</strong> — ออกแบบและส่งเมนูขึ้น LINE Messaging API
+          </div>
+          <div className="flex items-center gap-4 text-[11px] font-mono">
+            <span>LINE OA Official API v2</span>
+            <span>•</span>
+            <span>Next.js 16 + React 19</span>
+          </div>
+        </footer>
+      </main>
 
-      {/* Remote Rich Menu Manager Modal (Live LINE OA Overview & Cleanup) */}
-      {isRemoteManagerOpen && (
-        <RemoteRichMenuManagerModal
-          isOpen={isRemoteManagerOpen}
-          onClose={() => setIsRemoteManagerOpen(false)}
-          client={currentClient}
-          onNotify={(msg, isErr) => setDeployStatus({ message: msg, isError: isErr })}
-        />
-      )}
-    </main>
+      {/* Right Sticky Panel: Live Device Simulator */}
+      <aside
+        id="sec-preview"
+        className="w-full xl:w-[350px] 2xl:w-[370px] shrink-0 xl:sticky xl:top-6 self-start space-y-4"
+        aria-label="Live Device Simulator"
+      >
+        <div className="bg-white border border-[#dce2de] rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#edf2ee]">
+            <div>
+              <h2 className="font-bold text-sm text-[#1c2620] flex items-center gap-1.5">
+                <Smartphone className="w-4 h-4 text-[#147a42]" />
+                <span>Live Device Simulator</span>
+              </h2>
+              <p className="text-[11px] text-[#5e6f64]">ทดสอบกดปุ่ม & สลับแท็บบนมือถือจริง</p>
+            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#edf7ef] text-[#147a42] border border-[#b8dec4]">
+              {activeTab.aliasId || 'tab-a'}
+            </span>
+          </div>
+
+          <div className="flex justify-center bg-[#f4f6f5] rounded-xl p-3 border border-[#e5eae6]">
+            <SectionErrorBoundary title="Device Simulator">
+              <DeviceSimulator tabs={tabs} />
+            </SectionErrorBoundary>
+          </div>
+          <p className="text-center text-[10px] text-[#7d8f83] mt-2">
+            * อัปเดตสดตามที่คุณกำลังวาดและตั้งค่า
+          </p>
+        </div>
+      </aside>
+    </div>
+
+    {/* Remote Rich Menu Manager Modal (Live LINE OA Overview & Cleanup) */}
+    {isRemoteManagerOpen && (
+      <RemoteRichMenuManagerModal
+        isOpen={isRemoteManagerOpen}
+        onClose={() => setIsRemoteManagerOpen(false)}
+        client={currentClient}
+        onNotify={(msg, isErr) => setDeployStatus({ message: msg, isError: isErr })}
+      />
+    )}
+  </div>
   );
 }
