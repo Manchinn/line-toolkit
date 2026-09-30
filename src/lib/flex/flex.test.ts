@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBubble, buildFlexContents, buildFlexMessage, validateCards } from './builder';
+import { buildBubble, buildFlexBubble, buildFlexContents, buildFlexMessage, validateCards } from './builder';
 import type { FlexCard } from './types';
 
 function card(partial: Partial<FlexCard> = {}): FlexCard {
@@ -58,5 +58,28 @@ describe('flex builder', () => {
       card({ imageUrl: 'http://insecure.com/a.jpg', title: '', cta: { label: 'x', type: 'uri', value: 'javascript:1' } }),
     ]);
     expect(issues).toHaveLength(3);
+  });
+
+  it('omits footer block completely when noCta is enabled', () => {
+    const bubble = buildBubble(card({ noCta: true }));
+    expect(bubble.footer).toBeUndefined();
+  });
+
+  it('omits footer block completely when CTA labels are empty', () => {
+    const bubble = buildBubble(card({ cta: { label: '   ', type: 'uri', value: 'https://line.me' } }));
+    expect(bubble.footer).toBeUndefined();
+    // buildFlexBubble alias works identically
+    expect(buildFlexBubble(card({ cta: { label: '', type: 'uri', value: 'https://line.me' } })).footer).toBeUndefined();
+  });
+
+  it('bypasses CTA validation when noCta is enabled', () => {
+    // Bad CTA URL or empty label should NOT trigger validation errors if noCta is true
+    const issues = validateCards([
+      card({
+        noCta: true,
+        cta: { label: '', type: 'uri', value: 'invalid-url' },
+      }),
+    ]);
+    expect(issues).toEqual([]);
   });
 });

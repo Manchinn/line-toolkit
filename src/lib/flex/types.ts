@@ -22,6 +22,8 @@ export interface FlexCard {
   cta: CardCta;
   /** Optional second button. */
   secondaryCta?: CardCta;
+  /** When true, omits the CTA footer buttons (Pure Image / No CTA mode). */
+  noCta?: boolean;
 }
 
 export const CARD_TEMPLATE_META: Record<

@@ -5,9 +5,10 @@ const current = useCardStore.getState();
 
 describe('mergePersisted (card store rehydration)', () => {
   it('restores a valid snapshot', () => {
-    const card = { ...createCard('product'), title: 'สินค้าที่บันทึกไว้' };
+    const card = { ...createCard('product'), title: 'สินค้าที่บันทึกไว้', noCta: true };
     const merged = mergePersisted({ cards: [card], selectedCardId: card.id, altText: 'alt' }, current);
     expect(merged.cards).toEqual([card]);
+    expect(merged.cards[0].noCta).toBe(true);
     expect(merged.selectedCardId).toBe(card.id);
     expect(merged.altText).toBe('alt');
     expect(typeof merged.addCard).toBe('function'); // actions are kept

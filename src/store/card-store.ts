@@ -21,6 +21,7 @@ export function createCard(template: CardTemplate): FlexCard {
       description: 'ประสบการณ์สอน 10 ปี เน้นเข้าใจพื้นฐานและเทคนิคทำข้อสอบ',
       cta: { label: 'จองคิว', type: 'message', value: 'ขอจองคิวกับครูสมชาย' },
       secondaryCta: { label: 'ดูโปรไฟล์', type: 'uri', value: 'https://line.me' },
+      noCta: false,
     };
   }
   return {
@@ -32,6 +33,7 @@ export function createCard(template: CardTemplate): FlexCard {
     subtitle: '฿390',
     description: 'รายละเอียดสินค้าแบบสั้น 1–2 บรรทัด',
     cta: { label: 'สั่งซื้อเลย', type: 'uri', value: 'https://line.me' },
+    noCta: false,
   };
 }
 
@@ -74,7 +76,8 @@ function isFlexCard(value: unknown): value is FlexCard {
     (value.template === 'person' || value.template === 'product') &&
     ['imageUrl', 'tag', 'title', 'subtitle', 'description'].every((k) => typeof value[k] === 'string') &&
     isCta(value.cta) &&
-    (value.secondaryCta === undefined || isCta(value.secondaryCta))
+    (value.secondaryCta === undefined || isCta(value.secondaryCta)) &&
+    (value.noCta === undefined || typeof value.noCta === 'boolean')
   );
 }
 

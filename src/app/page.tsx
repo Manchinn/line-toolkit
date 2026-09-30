@@ -10,6 +10,7 @@ import TabAutoLinker from '@/components/TabAutoLinker';
 import DeviceSimulator from '@/components/DeviceSimulator';
 import CardStudio from '@/components/card-studio/CardStudio';
 import RemoteRichMenuManagerModal from '@/components/RemoteRichMenuManagerModal';
+import PasteJsonModal from '@/components/PasteJsonModal';
 import SectionErrorBoundary from '@/components/ErrorBoundary';
 import ActionIcon from '@/components/ActionIcon';
 import { createAreaId } from '@/components/RichMenuCanvas';
@@ -28,6 +29,7 @@ import {
   Trash2,
   Download,
   Upload,
+  ClipboardPaste,
   Edit2,
   Sliders,
   CheckCheck,
@@ -97,6 +99,7 @@ export default function Home() {
   const [copiedJson, setCopiedJson] = useState(false);
   const [jsonMinified, setJsonMinified] = useState(false);
   const [isRemoteManagerOpen, setIsRemoteManagerOpen] = useState(false);
+  const [isPasteJsonModalOpen, setIsPasteJsonModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonImportRef = useRef<HTMLInputElement>(null);
 
@@ -158,6 +161,66 @@ export default function Home() {
     downloadAnchor.remove();
   };
 
+  const applyImportedJson = (raw: unknown): { success: boolean; error?: string } => {
+    if (!raw || typeof raw !== 'object') {
+      return { success: false, error: 'ข้อมูล JSON ต้องเป็น Object หรือ Array' };
+    }
+
+    let jsonObj: Record<string, unknown>;
+    let areasList: unknown[] | null = null;
+
+    if (Array.isArray(raw)) {
+      jsonObj = {};
+      areasList = raw;
+    } else {
+      jsonObj = raw as Record<string, unknown>;
+      if (Array.isArray(jsonObj.areas)) {
+        areasList = jsonObj.areas;
+      }
+    }
+
+    const rawSize = jsonObj.size as { width?: unknown; height?: unknown } | undefined;
+    const hasValidSize = Boolean(
+      rawSize &&
+      typeof rawSize === 'object' &&
+      Number.isInteger(rawSize.width) &&
+      Number.isInteger(rawSize.height) &&
+      (rawSize.width as number) > 0 &&
+      (rawSize.height as number) > 0
+    );
+
+    if (!areasList && !hasValidSize) {
+      return {
+        success: false,
+        error: 'JSON ไม่ตรงตามโครงสร้าง LINE Rich Menu: ต้องมีข้อมูล areas (รายการปุ่ม) หรือ size (ขนาดเมนู)',
+      };
+    }
+
+    const size: MenuSize = hasValidSize
+      ? (rawSize as MenuSize)
+      : activeTab.size;
+
+    if (hasValidSize || jsonObj.chatBarText || jsonObj.name || jsonObj.selected !== undefined) {
+      updateTab(activeTab.id, {
+        size,
+        chatBarText: (typeof jsonObj.chatBarText === 'string' ? jsonObj.chatBarText : '') || activeTab.chatBarText,
+        title: (typeof jsonObj.name === 'string' ? jsonObj.name : '') || activeTab.title,
+        selected: typeof jsonObj.selected === 'boolean' ? jsonObj.selected : activeTab.selected,
+      });
+    }
+
+    if (areasList) {
+      const importedAreas = areasList
+        .slice(0, LINE_LIMITS.maxAreas)
+        .map((a, idx) => importArea(a, idx, size));
+      updateActiveTabAreas(importedAreas);
+      selectArea(null);
+    }
+
+    setDeployStatus({ message: 'นำเข้าข้อมูล JSON สำเร็จเรียบร้อย' });
+    return { success: true };
+  };
+
   const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -165,24 +228,10 @@ export default function Home() {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        const size: MenuSize =
-          json.size && Number.isInteger(json.size.width) && Number.isInteger(json.size.height) ? json.size : activeTab.size;
-        if (json.size) {
-          updateTab(activeTab.id, {
-            size,
-            chatBarText: json.chatBarText || activeTab.chatBarText,
-            title: json.name || activeTab.title,
-            selected: json.selected ?? activeTab.selected,
-          });
+        const result = applyImportedJson(json);
+        if (!result.success) {
+          setDeployStatus({ message: result.error || 'ไฟล์ JSON ไม่ถูกต้องตามรูปแบบของ LINE', isError: true });
         }
-        if (Array.isArray(json.areas)) {
-          const importedAreas = (json.areas as unknown[])
-            .slice(0, LINE_LIMITS.maxAreas)
-            .map((a, idx) => importArea(a, idx, size));
-          updateActiveTabAreas(importedAreas);
-          selectArea(null);
-        }
-        setDeployStatus({ message: 'นำเข้า JSON สำเร็จเรียบร้อย' });
       } catch {
         setDeployStatus({ message: 'ไฟล์ JSON ไม่ถูกต้องตามรูปแบบของ LINE', isError: true });
       }
@@ -724,6 +773,15 @@ export default function Home() {
               >
                 <Upload className="w-3 h-3" aria-hidden="true" />
                 Import from JSON
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPasteJsonModalOpen(true)}
+                className="quick-link-btn"
+                title="เปิดหน้าต่างวางโค้ด JSON จากคลิปบอร์ด"
+              >
+                <ClipboardPaste className="w-3 h-3" aria-hidden="true" />
+                วางข้อความ JSON
               </button>
               <button
                 type="button"
@@ -1281,6 +1339,15 @@ export default function Home() {
         onClose={() => setIsRemoteManagerOpen(false)}
         client={currentClient}
         onNotify={(msg, isErr) => setDeployStatus({ message: msg, isError: isErr })}
+      />
+    )}
+
+    {/* Paste JSON Modal */}
+    {isPasteJsonModalOpen && (
+      <PasteJsonModal
+        isOpen={isPasteJsonModalOpen}
+        onClose={() => setIsPasteJsonModalOpen(false)}
+        onImport={applyImportedJson}
       />
     )}
   </div>

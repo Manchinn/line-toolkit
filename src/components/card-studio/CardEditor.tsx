@@ -157,12 +157,35 @@ export default function CardEditor({ card, index, total, canDuplicate, onChange,
         <textarea id={`${uid}-desc`} rows={2} value={card.description} onChange={(e) => set('description', e.target.value)} className={cn(inputClass, 'resize-y')} />
       </div>
 
-      <CtaFields legend="ปุ่มหลัก (Call-to-Action)" cta={card.cta} onChange={(cta) => set('cta', cta)} />
-      <CtaFields
-        legend="ปุ่มรอง (ไม่บังคับ — เว้นข้อความว่างเพื่อซ่อน)"
-        cta={card.secondaryCta ?? { label: '', type: 'uri', value: '' }}
-        onChange={(cta) => set('secondaryCta', cta)}
-      />
+      <div className="rounded-lg border border-[#dfe5e1] bg-[#f8faf8] p-3">
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={Boolean(card.noCta)}
+            onChange={(e) => set('noCta', e.target.checked)}
+            className="h-4 w-4 rounded border-[#b8dec4] text-[#147a42] focus:ring-[#147a42] accent-[#147a42]"
+          />
+          <span className="text-xs font-semibold text-[#1c2620]">
+            ซ่อนปุ่ม Call-to-Action (No CTA / Pure Image Mode)
+          </span>
+        </label>
+        <p className="mt-1 text-[11px] text-[#5e6f64] pl-6.5">
+          {card.noCta
+            ? 'โหมดภาพล้วน / ไม่แสดงปุ่มท้ายการ์ด (Footer Block จะถูกตัดออกโดยสมบูรณ์)'
+            : 'แสดงปุ่ม Call-to-Action ด้านล่างของการ์ด'}
+        </p>
+      </div>
+
+      {!card.noCta && (
+        <>
+          <CtaFields legend="ปุ่มหลัก (Call-to-Action)" cta={card.cta} onChange={(cta) => set('cta', cta)} />
+          <CtaFields
+            legend="ปุ่มรอง (ไม่บังคับ — เว้นข้อความว่างเพื่อซ่อน)"
+            cta={card.secondaryCta ?? { label: '', type: 'uri', value: '' }}
+            onChange={(cta) => set('secondaryCta', cta)}
+          />
+        </>
+      )}
     </div>
   );
 }

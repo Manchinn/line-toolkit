@@ -136,12 +136,25 @@ export function buildBubble(card: FlexCard): FlexBubble {
     ]),
   };
 
-  const buttons = compact<FlexButton>([
-    { type: 'button', style: 'primary', height: 'sm', color: PRIMARY_COLOR, action: toFlexAction(card.cta) },
-    card.secondaryCta?.label.trim()
-      ? { type: 'button', style: 'link', height: 'sm', color: '#555555', action: toFlexAction(card.secondaryCta) }
-      : null,
-  ]);
+  const hasPrimaryLabel = Boolean(card.cta.label.trim());
+  const hasSecondaryLabel = Boolean(card.secondaryCta?.label.trim());
+  const hideFooter = Boolean(card.noCta) || (!hasPrimaryLabel && !hasSecondaryLabel);
+
+  const buttons = hideFooter
+    ? []
+    : compact<FlexButton>([
+        hasPrimaryLabel
+          ? { type: 'button', style: 'primary', height: 'sm', color: PRIMARY_COLOR, action: toFlexAction(card.cta) }
+          : null,
+        hasSecondaryLabel && card.secondaryCta
+          ? { type: 'button', style: 'link', height: 'sm', color: '#555555', action: toFlexAction(card.secondaryCta) }
+          : null,
+      ]);
+
+  const footer: FlexBox | undefined =
+    !hideFooter && buttons.length > 0
+      ? { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '12px', contents: buttons }
+      : undefined;
 
   return {
     type: 'bubble',
@@ -150,9 +163,11 @@ export function buildBubble(card: FlexCard): FlexBubble {
       ? { hero: { type: 'image', url: card.imageUrl.trim(), size: 'full', aspectRatio: meta.aspectRatio, aspectMode: 'cover' } }
       : {}),
     body,
-    footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '12px', contents: buttons },
+    ...(footer ? { footer } : {}),
   };
 }
+
+export const buildFlexBubble = buildBubble;
 
 /** One card → bubble, 2+ cards → carousel (LINE max 12). */
 export function buildFlexContents(cards: readonly FlexCard[]): FlexBubble | FlexCarousel {
@@ -199,8 +214,14 @@ export function validateCards(cards: readonly FlexCard[]): CardIssue[] {
       if (!url.startsWith('https://')) push(`${name}: รูปต้องเป็น URL แบบ https:// (LINE ไม่รับ http หรือไฟล์ในเครื่อง)`);
       else if (url.length > FLEX_LIMITS.imageUrl) push(`${name}: URL รูปยาวเกิน ${FLEX_LIMITS.imageUrl} ตัว`);
     }
-    validateCta(card.cta, `${name} ปุ่มหลัก`).forEach(push);
-    if (card.secondaryCta?.label.trim()) validateCta(card.secondaryCta, `${name} ปุ่มรอง`).forEach(push);
+    if (!card.noCta) {
+      if (card.cta.label.trim()) {
+        validateCta(card.cta, `${name} ปุ่มหลัก`).forEach(push);
+      }
+      if (card.secondaryCta?.label.trim()) {
+        validateCta(card.secondaryCta, `${name} ปุ่มรอง`).forEach(push);
+      }
+    }
   });
 
   return issues;

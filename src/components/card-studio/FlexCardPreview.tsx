@@ -57,14 +57,18 @@ export default function FlexCardPreview({ card, selected, hasError, onSelect }: 
         {card.description.trim() && <p className="line-clamp-4 text-xs leading-relaxed text-[#8c8c8c]">{card.description}</p>}
       </div>
 
-      <div className="space-y-1 px-3 pb-3">
-        <span className="block truncate rounded-md bg-[#06C755] py-2 text-center text-xs font-semibold text-white">
-          {card.cta.label || 'ดูเพิ่มเติม'}
-        </span>
-        {card.secondaryCta?.label.trim() && (
-          <span className="block truncate py-1.5 text-center text-xs font-semibold text-[#555]">{card.secondaryCta.label}</span>
-        )}
-      </div>
+      {!card.noCta && (card.cta.label.trim() || card.secondaryCta?.label?.trim()) && (
+        <div className="space-y-1 px-3 pb-3">
+          {card.cta.label.trim() && (
+            <span className="block truncate rounded-md bg-[#06C755] py-2 text-center text-xs font-semibold text-white">
+              {card.cta.label}
+            </span>
+          )}
+          {card.secondaryCta?.label?.trim() && (
+            <span className="block truncate py-1.5 text-center text-xs font-semibold text-[#555]">{card.secondaryCta.label}</span>
+          )}
+        </div>
+      )}
     </button>
   );
 }
