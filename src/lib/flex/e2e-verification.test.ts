@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFlexMessage, buildFlexContents } from './builder';
+import { buildFlexMessage } from './builder';
 import { buildRichMenuPayload, validateTab } from '../richmenu/payload';
 import type { FlexCard } from './types';
 import type { RichMenuTab } from '@/types/line';

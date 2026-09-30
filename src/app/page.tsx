@@ -9,6 +9,7 @@ import GridPresetBar from '@/components/GridPresetBar';
 import TabAutoLinker from '@/components/TabAutoLinker';
 import DeviceSimulator from '@/components/DeviceSimulator';
 import CardStudio from '@/components/card-studio/CardStudio';
+import RemoteRichMenuManagerModal from '@/components/RemoteRichMenuManagerModal';
 import SectionErrorBoundary from '@/components/ErrorBoundary';
 import ActionIcon from '@/components/ActionIcon';
 import { createAreaId } from '@/components/RichMenuCanvas';
@@ -31,6 +32,7 @@ import {
   Sliders,
   CheckCheck,
   Code2,
+  LayoutGrid,
 } from 'lucide-react';
 import type { AreaAction, AreaBounds, MenuSize, RichMenuArea } from '@/types/line';
 
@@ -90,6 +92,7 @@ export default function Home() {
   const [batchDeploying, setBatchDeploying] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
   const [jsonMinified, setJsonMinified] = useState(false);
+  const [isRemoteManagerOpen, setIsRemoteManagerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonImportRef = useRef<HTMLInputElement>(null);
 
@@ -342,25 +345,47 @@ export default function Home() {
           <h1>LINE Messaging Toolkit</h1>
         </div>
 
-        <div className="toolkit-status-box" aria-label="สถานะการเชื่อมต่อระบบ">
-          <div className="flex items-center justify-between text-[#5e6f64]">
-            <span>Connection:</span>
-            <span className="text-[#147a42] font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#147a42]" aria-hidden="true" />
-              Local Storage
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-[#5e6f64]">
-            <span>Account:</span>
-            <span className="font-semibold text-[#1c2620] truncate max-w-[120px]">
-              {currentClient ? currentClient.name : 'ยังไม่เลือก'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-[#5e6f64]">
-            <span>Active Tab:</span>
-            <span className="text-[#147a42] font-semibold">
-              {activeTab.aliasId || 'tab-a'}
-            </span>
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              if (!currentClient) {
+                scrollToSection('sec-client', 'client');
+                setDeployStatus({ message: 'กรุณาเลือกลูกค้า / ใส่ Channel Access Token ในส่วน Account ก่อน', isError: true });
+                return;
+              }
+              setIsRemoteManagerOpen(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-white border border-[#b8dec4] text-[#147a42] hover:bg-[#edf7ef] shadow-2xs text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="ตรวจสอบและลบเมนูบน LINE OA โดยตรง"
+          >
+            <LayoutGrid className="w-4 h-4 text-[#147a42]" />
+            <span>จัดการเมนูบน LINE</span>
+            {currentClient ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" title="พร้อมเชื่อมต่อ" />
+            ) : null}
+          </button>
+
+          <div className="toolkit-status-box" aria-label="สถานะการเชื่อมต่อระบบ">
+            <div className="flex items-center justify-between text-[#5e6f64]">
+              <span>Connection:</span>
+              <span className="text-[#147a42] font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#147a42]" aria-hidden="true" />
+                Local Storage
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[#5e6f64]">
+              <span>Account:</span>
+              <span className="font-semibold text-[#1c2620] truncate max-w-[120px]">
+                {currentClient ? currentClient.name : 'ยังไม่เลือก'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[#5e6f64]">
+              <span>Active Tab:</span>
+              <span className="text-[#147a42] font-semibold">
+                {activeTab.aliasId || 'tab-a'}
+              </span>
+            </div>
           </div>
         </div>
       </header>
@@ -392,6 +417,26 @@ export default function Home() {
         >
           <span className="nav-num">03</span>
           <span>Account ({clients.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (!currentClient) {
+              scrollToSection('sec-client', 'client');
+              setDeployStatus({ message: 'กรุณาเลือกลูกค้า / ใส่ Channel Access Token ในส่วน Account ก่อน', isError: true });
+            } else {
+              setIsRemoteManagerOpen(true);
+            }
+          }}
+          className="nav-tab-btn text-[#147a42] hover:bg-[#edf7ef]"
+          title="เปิดหน้าต่างตรวจสอบและลบเมนูบน LINE OA"
+        >
+          <span className="nav-num">LINE</span>
+          <span className="flex items-center gap-1">
+            <span>Remote Menus</span>
+            {currentClient && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+          </span>
         </button>
 
         <button
@@ -1075,6 +1120,18 @@ export default function Home() {
             <span className="section-num-badge">03</span>
             <h2 id="client-mgmt-heading">Account Profile</h2>
             <p>จัดการโปรไฟล์ลูกค้าและ LINE Channel Access Token เพื่อสลับบัญชีทำงานได้อย่างสะดวก</p>
+            {currentClient && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsRemoteManagerOpen(true)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#147a42] bg-[#edf7ef] hover:bg-[#dff0e3] border border-[#b8dec4] transition-colors cursor-pointer"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>จัดการเมนูบน LINE</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="section-content">
@@ -1084,6 +1141,7 @@ export default function Home() {
               onSelectClient={selectClient}
               onAddClient={addClient}
               onDeleteClient={deleteClient}
+              onOpenRemoteManager={() => setIsRemoteManagerOpen(true)}
             />
           </div>
         </section>
@@ -1114,6 +1172,16 @@ export default function Home() {
           <span>Next.js 16 + React 19</span>
         </div>
       </footer>
+
+      {/* Remote Rich Menu Manager Modal (Live LINE OA Overview & Cleanup) */}
+      {isRemoteManagerOpen && (
+        <RemoteRichMenuManagerModal
+          isOpen={isRemoteManagerOpen}
+          onClose={() => setIsRemoteManagerOpen(false)}
+          client={currentClient}
+          onNotify={(msg, isErr) => setDeployStatus({ message: msg, isError: isErr })}
+        />
+      )}
     </main>
   );
 }

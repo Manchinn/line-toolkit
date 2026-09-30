@@ -53,3 +53,26 @@ export interface RichMenuTab {
   imageFile?: File;
   areas: RichMenuArea[];
 }
+
+export interface LineRemoteRichMenu {
+  richMenuId: string;
+  name: string;
+  size: { width: number; height: number };
+  selected: boolean;
+  chatBarText: string;
+  areas: Array<{
+    bounds: AreaBounds;
+    action: Record<string, unknown>;
+  }>;
+}
+
+export interface LineRemoteAlias {
+  richMenuAliasId: string;
+  richMenuId: string;
+}
+
+export interface RemoteRichMenuOverview {
+  menus: LineRemoteRichMenu[];
+  aliases: LineRemoteAlias[];
+  defaultMenuId: string | null;
+}

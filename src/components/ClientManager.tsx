@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { ClientProfile } from '@/types/line';
 import { cn } from '@/lib/utils';
-import { Building2, Plus, Trash2, CheckCircle2, X } from 'lucide-react';
+import { Building2, Plus, Trash2, CheckCircle2, X, LayoutGrid } from 'lucide-react';
 
 interface ClientManagerProps {
   clients: ClientProfile[];
@@ -11,6 +11,7 @@ interface ClientManagerProps {
   onSelectClient: (id: string | null) => void;
   onAddClient: (client: ClientProfile) => void;
   onDeleteClient: (id: string) => void;
+  onOpenRemoteManager?: () => void;
 }
 
 export default function ClientManager({
@@ -19,6 +20,7 @@ export default function ClientManager({
   onSelectClient,
   onAddClient,
   onDeleteClient,
+  onOpenRemoteManager,
 }: ClientManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
@@ -115,7 +117,23 @@ export default function ClientManager({
         )}
       </div>
 
-      {selectedClient && <p className="text-xs text-[#56665b]">เลือกบัญชี {selectedClient.name} · ข้อมูลโปรไฟล์เก็บในเบราว์เซอร์นี้ ไม่ได้ยืนยัน Token</p>}
+      {selectedClient && (
+        <div className="pt-2 border-t border-[#dce2de] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <p className="text-xs text-[#56665b]">
+            เลือกบัญชี <strong className="text-[#1c2620]">{selectedClient.name}</strong> · ข้อมูลโปรไฟล์เก็บในเบราว์เซอร์นี้
+          </p>
+          {onOpenRemoteManager && (
+            <button
+              type="button"
+              onClick={onOpenRemoteManager}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#147a42] bg-[#edf7ef] hover:bg-[#dff0e3] border border-[#b8dec4] transition-colors cursor-pointer shrink-0"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>จัดการเมนูบน LINE</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Add Client Form */}
       {isOpen && (
